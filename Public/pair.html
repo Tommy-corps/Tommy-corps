@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="sw">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pata Pair Code - WhatsApp Bot</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>WhatsApp Bot • Pair Code</h1>
+      <p>Weka namba yako ya WhatsApp (mfano: <strong>2557XXXXXXXX</strong>) ili kupata Pair Code.</p>
+    </header>
+
+    <form id="pairForm" class="card">
+      <label for="phone">Namba ya Simu</label>
+      <input id="phone" name="phone" type="tel" inputmode="numeric" placeholder="2557XXXXXXXX" required />
+
+      <button type="submit" id="btnGet">Pata Pair Code</button>
+
+      <div id="result" class="result" aria-live="polite"></div>
+      <p class="hint">
+        * Endapo umeunganishwa tayari, futa <code>auth_info/</code> au weka <code>SESSION_ID</code> mpya kisha anzisha bot upya.
+      </p>
+    </form>
+
+    <footer>
+      <small>© 2025 • WhatsApp Bot</small>
+    </footer>
+  </div>
+
+  <script>
+    const form = document.getElementById("pairForm");
+    const result = document.getElementById("result");
+    const btn = document.getElementById("btnGet");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      result.textContent = "";
+      btn.disabled = true;
+
+      const phone = document.getElementById("phone").value.trim();
+
+      try {
+        const res = await fetch("/api/pair-code", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone }),
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          result.className = "result success";
+          result.textContent = "Pair Code: " + data.code;
+        } else {
+          result.className = "result error";
+          result.textContent = data.error || "Hitilafu isiyojulikana.";
+        }
+      } catch (err) {
+        result.className = "result error";
+        result.textContent = "Imeshindikana kuwasiliana na server.";
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
