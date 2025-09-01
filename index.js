@@ -9,6 +9,7 @@ const {
 } = require("@whiskeysockets/baileys");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 const P = require("pino");
 const express = require("express");
 
