@@ -1,0 +1,74 @@
+# ============================
+# 🔐 BOT CONFIGURATION
+# ============================
+PORT=3000
+SESSION_NAME=tommy-corps
+OWNER_NUMBER=2557XXXXXXX       # Namba ya WhatsApp ya owner
+BOT_NAME=Tommy-Corps 🤖
+MODE=public                   # public / private
+PREFIX=!
+
+# ============================
+# ⚙️ AUTO FEATURES
+# ============================
+AUTO_TYPING=off ⌨️
+AUTO_RECORDING=off 🎙️
+AUTO_READ=on 👁️
+AUTO_REACT=on 😍
+VIEW_ONCE=on 👀
+ANTI_DELETE=on 🛡️
+PAIRING_CODE=on 🔑          # On/off kwa pairing code auto
+
+# ============================
+# 🌐 API KEYS (kwa AI & media)
+# ============================
+OPENAI_API_KEY=your_openai_api_key_here
+REMOVE_BG_KEY=your_removebg_api_key_here
+PEXELS_API_KEY=your_pexels_api_key_here
+
+# ============================
+# 💬 CHAT & AI FEATURES
+# ============================
+AI_CHAT=on 🤖
+AI_IMAGE_GEN=on 🎨
+AI_VOICE=on 🗣️
+AI_TRANSLATE=on 🌍
+AI_PDF_TO_TEXT=on 📄
+
+# ============================
+# 🎵 MEDIA FEATURES
+# ============================
+MUSIC_DOWNLOAD=on 🎶
+YOUTUBE_MP3=on 🎧
+YOUTUBE_MP4=on 🎬
+SOUNDCLOUD_DL=on 🎵
+
+# ============================
+# 🖼️ IMAGE/VIDEO FEATURES
+# ============================
+STICKER_MAKER=on 🖼️
+STICKER_AUTO_CROP=on ✂️
+VIDEO_TO_GIF=on 🎥➡️🎞️
+
+# ============================
+# 👮 GROUP MANAGEMENT
+# ============================
+AUTO_WELCOME=on 👋
+AUTO_GOODBYE=on 👋🚪
+ANTI_BAD_WORDS=on 🚫🗣️
+
+# ============================
+# ⚡ FUN FEATURES
+# ============================
+JOKES=on 😂
+MEMES=on 🤣
+QUOTE=on 📝
+FAKE_TYPING=on ⌨️
+FAKE_RECORDING=on 🎤
+
+# ============================
+# 📊 SYSTEM SETTINGS
+# ============================
+LOG_LEVEL=info
+KEEP_ALIVE=on 🔄
+MAX_FILE_SIZE_MB=100
