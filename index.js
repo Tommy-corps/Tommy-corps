@@ -5,43 +5,31 @@ const {
   makeCacheableSignalKeyStore,
   fetchLatestBaileysVersion,
   DisconnectReason,
-  jidNormalizedUser,
 } = require("@whiskeysockets/baileys");
+const Boom = require("@hapi/boom");
 const fs = require("fs");
 const path = require("path");
-const os = require("os");
 const P = require("pino");
 const express = require("express");
 
 // -------- ENV SETTINGS --------
-const ownerNumber = process.env.OWNER_NUMBER || "2557xxxxxxx";
-const pairingCodeFlag = process.env.PAIRING_CODE || "on";
+const ownerNumber = (process.env.OWNER_NUMBER || "2557xxxxxxx") + "@s.whatsapp.net";
 const sessionFolder = "./auth_info";
-const sessionID = process.env.SESSION_ID || "";
 const PORT = process.env.PORT || 3000;
 const AUTO_REACT = process.env.AUTO_REACT || "👋";
 
-let sock; // tunaiweka global ili routes ziitumie
-
-// -------- RESTORE SESSION --------
-if (sessionID) {
-  if (!fs.existsSync(sessionFolder)) fs.mkdirSync(sessionFolder);
-  try {
-    const creds = Buffer.from(sessionID, "base64").toString("utf8");
-    fs.writeFileSync(path.join(sessionFolder, "creds.json"), creds);
-    console.log("✅ SESSION ID imerejeshwa (creds.json)!");
-  } catch (e) {
-    console.error("❌ SESSION ID si sahihi:", e.message);
-  }
-}
+let sock;
 
 // -------- COMMAND LOADER --------
 function loadCommands() {
   let commands = {};
-  const files = fs.readdirSync(path.join(__dirname, "commands")).filter((f) => f.endsWith(".js"));
+  const cmdPath = path.join(__dirname, "commands");
+  if (!fs.existsSync(cmdPath)) return commands;
+
+  const files = fs.readdirSync(cmdPath).filter((f) => f.endsWith(".js"));
   for (let file of files) {
     try {
-      const cmd = require(path.join(__dirname, "commands", file));
+      const cmd = require(path.join(cmdPath, file));
       commands[cmd.name] = cmd;
     } catch (e) {
       console.error(`⚠️ Kushindwa kupakia command ${file}:`, e.message);
@@ -58,7 +46,7 @@ async function startBot() {
   sock = makeWASocket({
     version,
     logger: P({ level: "silent" }),
-    printQRInTerminal: false,
+    printQRInTerminal: true,
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(
@@ -68,31 +56,19 @@ async function startBot() {
     },
   });
 
-  // Pairing code auto kwa owner
-  if (!sock.authState.creds.registered && pairingCodeFlag === "on" && !sessionID) {
-    const phoneNumber = ownerNumber.replace(/[^0-9]/g, "");
-    const code = await sock.requestPairingCode(phoneNumber);
-    console.log(`👉 Pairing code (OWNER): ${code}`);
-  }
-
-  // Connection updates
   sock.ev.on("connection.update", async (u) => {
     const { connection, lastDisconnect } = u || {};
     if (connection === "close") {
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
+      const reason = lastDisconnect?.error;
+      if (Boom.isBoom(reason)) {
+        console.log("❌ Boom error:", reason.output.payload);
+      }
+      const shouldReconnect =
+        reason?.output?.statusCode !== DisconnectReason.loggedOut;
       console.log("❌ Connection closed. Reconnecting:", shouldReconnect);
       if (shouldReconnect) startBot();
     } else if (connection === "open") {
       console.log("✅ Bot imeunganishwa!");
-      try {
-        const data = fs.readFileSync(path.join(sessionFolder, "creds.json"), "utf8");
-        const newSessionID = Buffer.from(data).toString("base64");
-        await sock.sendMessage(jidNormalizedUser(ownerNumber + "@s.whatsapp.net"), {
-          text: `✅ SESSION ID yako:\n\n${newSessionID}\n\nHifadhi hii kwa deployments zijazo.`,
-        });
-      } catch (e) {
-        console.error("⚠️ Kushindwa kutuma SESSION ID:", e.message);
-      }
     }
   });
 
@@ -111,24 +87,32 @@ async function startBot() {
         msg.message?.imageMessage?.caption ||
         "";
 
-      // Auto react kwa kila message
+      // Only owner can use bot
+      if (sender !== ownerNumber) {
+        if (body.startsWith("*")) {
+          await sock.sendMessage(sender, {
+            text: "🚫 Samahani, bot hii ni private. Huwezi kuitumia.",
+          });
+        }
+        return;
+      }
+
+      // Auto react
       try {
         await sock.sendMessage(sender, { react: { text: AUTO_REACT, key: msg.key } });
       } catch {}
 
-      // Owner only: !session
-      if (body.trim().toLowerCase() === "!session" && sender.includes(ownerNumber)) {
-        const data = fs.readFileSync(path.join(sessionFolder, "creds.json"), "utf8");
-        const newSessionID = Buffer.from(data).toString("base64");
-        await sock.sendMessage(sender, { text: `📂 SESSION ID yako:\n\n${newSessionID}` });
-      }
-
-      // Commands (prefix "!")
-      if (body.startsWith("!")) {
+      // Commands (prefix "*")
+      if (body.startsWith("*")) {
         const args = body.slice(1).trim().split(/ +/);
         const cmdName = args.shift().toLowerCase();
+
         if (commands[cmdName]) {
           await commands[cmdName].execute(sock, msg, args);
+        } else {
+          await sock.sendMessage(sender, {
+            text: `❓ Command *${cmdName}* haipo.`,
+          });
         }
       }
     } catch (e) {
@@ -162,32 +146,8 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/", (req, res) => res.send("✅ WhatsApp Bot is running"));
-
-app.post("/api/pair-code", async (req, res) => {
-  try {
-    const phone = String(req.body?.phone || "").replace(/[^0-9]/g, "");
-    if (!phone) return res.status(400).json({ ok: false, error: "Weka namba sahihi (mfano: 2557...)" });
-
-    if (!sock) return res.status(503).json({ ok: false, error: "Socket haiko tayari. Jaribu tena." });
-
-    if (sock.authState?.creds?.registered) {
-      return res.status(409).json({
-        ok: false,
-        error: "Akaunti tayari imeunganishwa. Futa folder 'auth_info' au weka SESSION_ID mpya kisha anza upya.",
-      });
-    }
-
-    const code = await sock.requestPairingCode(phone);
-    return res.json({ ok: true, code });
-  } catch (e) {
-    console.error("❌ /api/pair-code error:", e);
-    return res.status(500).json({ ok: false, error: "Hitilafu ya ndani. Jaribu tena." });
-  }
-});
-
-app.get("/pair", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "pair.html"));
-});
+app.get("/", (req, res) =>
+  res.send("✅ WhatsApp Bot is running (QR Login, prefix '*')")
+);
 
 app.listen(PORT, () => console.log(`🌐 Web server listening on :${PORT}`));
