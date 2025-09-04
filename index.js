@@ -1,4 +1,3 @@
-// index.js
 require("dotenv").config();
 const {
   default: makeWASocket,
@@ -13,12 +12,12 @@ const path = require("path");
 const P = require("pino");
 const express = require("express");
 const qrcode = require("qrcode-terminal");
-const { ownerNumber } = require("./config");
 
 // -------- ENV SETTINGS --------
+const OWNER_NUMBER = (process.env.OWNER_NUMBER || "255624236654") + "@s.whatsapp.net";
 const sessionFolder = "./auth_info";
 const PORT = process.env.PORT || 3000;
-const AUTO_REACT = (process.env.AUTO_REACT || "👋").split(","); // multiple emojis
+const AUTO_REACT = process.env.AUTO_REACT?.split(",") || ["👋","😎","✨","🔥"];
 
 let sock;
 
@@ -34,7 +33,7 @@ function loadCommands() {
       const cmd = require(path.join(cmdPath, file));
       commands[cmd.name] = cmd;
     } catch (e) {
-      console.error(`⚠️ Failed to load command ${file}:`, e.message);
+      console.error(`⚠️ Kushindwa kupakia command ${file}:`, e.message);
     }
   }
   return commands;
@@ -78,15 +77,17 @@ async function startBot() {
     }
   });
 
-  // -------- Handle Messages --------
+  // -------- Load commands --------
   const commands = loadCommands();
 
+  // -------- Handle messages --------
   sock.ev.on("messages.upsert", async (m) => {
     try {
       const msg = m.messages?.[0];
       if (!msg?.message) return;
 
-      const sender = msg.key.participant || msg.key.remoteJid;
+      const from = msg.key.remoteJid;
+      const sender = msg.key.participant || from;
       const body =
         msg.message.conversation ||
         msg.message.extendedTextMessage?.text ||
@@ -94,44 +95,33 @@ async function startBot() {
         "";
 
       // Only owner can use bot
-      if (sender !== ownerNumber) {
-        if (body.startsWith("*") || body.startsWith("#")) {
-          await sock.sendMessage(sender, {
-            text: "🚫 Samahani, bot hii ni private. Huwezi kuitumia.",
-          });
-        }
-        return;
-      }
+      if (sender !== OWNER_NUMBER) return;
 
-      // Auto react with random emoji
-      if (AUTO_REACT.length > 0) {
-        const randomReact = AUTO_REACT[Math.floor(Math.random() * AUTO_REACT.length)];
-        try {
-          await sock.sendMessage(sender, { react: { text: randomReact, key: msg.key } });
-        } catch {}
-      }
+      // Auto react random emoji
+      try {
+        const react = AUTO_REACT[Math.floor(Math.random() * AUTO_REACT.length)];
+        await sock.sendMessage(from, { react: { text: react, key: msg.key } });
+      } catch {}
 
-      // Commands (prefix * or #)
+      // Commands (prefix "*" or "#")
       if (body.startsWith("*") || body.startsWith("#")) {
-        const prefix = body[0];
         const args = body.slice(1).trim().split(/ +/);
         const cmdName = args.shift().toLowerCase();
 
         if (commands[cmdName]) {
           await commands[cmdName].execute(sock, msg, args);
         } else {
-          await sock.sendMessage(sender, {
+          await sock.sendMessage(from, {
             text: `❓ Command *${cmdName}* haipo.`,
           });
         }
       }
-
     } catch (e) {
       console.error("❌ messages.upsert error:", e);
     }
   });
 
-  // -------- Auto View Status --------
+  // -------- Auto view status --------
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type === "notify") {
       for (let msg of messages) {
@@ -158,7 +148,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
-  res.send("✅ WhatsApp Bot is running (QR Login, prefixes '*' and '#')");
+  res.send("✅ WhatsApp Bot is running (QR Login, prefix '*' or '#')");
 });
 
 app.listen(PORT, () => console.log(`🌐 Web server listening on :${PORT}`));
