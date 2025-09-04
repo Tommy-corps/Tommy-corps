@@ -11,6 +11,7 @@ const fs = require("fs");
 const path = require("path");
 const P = require("pino");
 const express = require("express");
+const qrcode = require("qrcode-terminal"); // 👈 Ongeza hii
 
 // -------- ENV SETTINGS --------
 const ownerNumber = (process.env.OWNER_NUMBER || "2557xxxxxxx") + "@s.whatsapp.net";
@@ -46,7 +47,6 @@ async function startBot() {
   sock = makeWASocket({
     version,
     logger: P({ level: "silent" }),
-    printQRInTerminal: true,
     auth: {
       creds: state.creds,
       keys: makeCacheableSignalKeyStore(
@@ -56,15 +56,21 @@ async function startBot() {
     },
   });
 
-  sock.ev.on("connection.update", async (u) => {
-    const { connection, lastDisconnect } = u || {};
+  // -------- Connection updates & QR --------
+  sock.ev.on("connection.update", (update) => {
+    const { connection, lastDisconnect, qr } = update;
+
+    if (qr) {
+      // Print QR in terminal
+      qrcode.generate(qr, { small: true });
+      console.log("📷 Scan QR code hapa terminal!");
+    }
+
     if (connection === "close") {
       const reason = lastDisconnect?.error;
-      if (Boom.isBoom(reason)) {
-        console.log("❌ Boom error:", reason.output.payload);
-      }
-      const shouldReconnect =
-        reason?.output?.statusCode !== DisconnectReason.loggedOut;
+      if (Boom.isBoom(reason)) console.log("❌ Boom error:", reason.output.payload);
+
+      const shouldReconnect = reason?.output?.statusCode !== DisconnectReason.loggedOut;
       console.log("❌ Connection closed. Reconnecting:", shouldReconnect);
       if (shouldReconnect) startBot();
     } else if (connection === "open") {
