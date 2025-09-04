@@ -1,43 +1,29 @@
-// commands/ping.js
-const os = require("os");
-
 module.exports = {
   name: "ping",
-  description: "Check bot latency, uptime and branding",
+  description: "Simple ping with latency, branding, and emoji react",
+
   async execute(sock, msg, args) {
     try {
+      const from = msg.key.remoteJid;
       const start = Date.now();
 
-      // Temporary message to measure latency
-      const tempMsg = await sock.sendMessage(msg.key.remoteJid, { text: "🏓 Pinging Tommy-Corps..." });
+      // Temporary ping message
+      const tempMsg = await sock.sendMessage(from, { text: "🏓 Pinging Tommy-Corps..." });
 
       const latency = Date.now() - start;
-      const uptimeSec = process.uptime();
-      const uptime = `${Math.floor(uptimeSec / 3600)}h ${Math.floor((uptimeSec % 3600) / 60)}m ${Math.floor(uptimeSec % 60)}s`;
 
-      const platform = os.platform();
-      const cpu = os.cpus()[0].model;
+      // React with emoji
+      await sock.sendMessage(from, { react: { text: "🏓", key: tempMsg.key } });
 
-      const reply = `
-📡 *Tommy-Corps Bot Ping*
-────────────────────
-🏓 Latency: ${latency} ms
-⏱️ Uptime: ${uptime}
-💻 Platform: ${platform}
-🖥️ CPU: ${cpu}
-🤖 Bot: Tommy-Corps Online
-────────────────────
-✨ Powered by Tommy-Corps Tech
-      `;
+      // Send final short ping reply
+      await sock.sendMessage(from, { text: `🏓 Tommy-Corps: ${latency} ms` });
 
-      // Send final ping result
-      await sock.sendMessage(msg.key.remoteJid, { text: reply });
+      // Delete temporary ping message
+      await sock.sendMessage(from, { delete: tempMsg.key });
 
-      // Optional: delete temporary ping message
-      await sock.sendMessage(msg.key.remoteJid, { delete: tempMsg.key });
     } catch (e) {
-      console.error("⚠️ Ping command error:", e);
-      await sock.sendMessage(msg.key.remoteJid, { text: "❌ Ping failed. Try again!" });
+      console.error("❌ Ping failed:", e);
+      await sock.sendMessage(msg.key.remoteJid, { text: `❌ Ping failed: ${e.message}` });
     }
   },
 };

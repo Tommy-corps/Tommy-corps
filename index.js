@@ -15,6 +15,7 @@ const qrcode = require("qrcode-terminal"); // 👈 Ongeza hii
 
 // -------- ENV SETTINGS --------
 const ownerNumber = (process.env.OWNER_NUMBER || "2557xxxxxxx") + "@s.whatsapp.net";
+const ownerNumber = (process.env.OWNER_NUMBER || "255624236654") + "@s.whatsapp.net";
 const sessionFolder = "./auth_info";
 const PORT = process.env.PORT || 3000;
 const AUTO_REACT = process.env.AUTO_REACT || "👋";
@@ -110,6 +111,7 @@ async function startBot() {
 
       // Commands (prefix "*")
       if (body.startsWith("*")) {
+      if (body.startsWith("#")) {
         const args = body.slice(1).trim().split(/ +/);
         const cmdName = args.shift().toLowerCase();
 
@@ -154,6 +156,7 @@ app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) =>
   res.send("✅ WhatsApp Bot is running (QR Login, prefix '*')")
+  res.send("✅ WhatsApp Bot is running (QR Login, prefix '#')")
 );
 
 app.listen(PORT, () => console.log(`🌐 Web server listening on :${PORT}`));
