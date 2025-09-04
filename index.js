@@ -1,3 +1,4 @@
+// index.js
 require("dotenv").config();
 const {
   default: makeWASocket,
@@ -11,14 +12,13 @@ const fs = require("fs");
 const path = require("path");
 const P = require("pino");
 const express = require("express");
-const qrcode = require("qrcode-terminal"); // 👈 Ongeza hii
+const qrcode = require("qrcode-terminal");
+const { ownerNumber } = require("./config");
 
 // -------- ENV SETTINGS --------
-const ownerNumber = (process.env.OWNER_NUMBER || "2557xxxxxxx") + "@s.whatsapp.net";
-const ownerNumber = (process.env.OWNER_NUMBER || "255624236654") + "@s.whatsapp.net";
 const sessionFolder = "./auth_info";
 const PORT = process.env.PORT || 3000;
-const AUTO_REACT = process.env.AUTO_REACT || "👋";
+const AUTO_REACT = (process.env.AUTO_REACT || "👋").split(","); // multiple emojis
 
 let sock;
 
@@ -34,7 +34,7 @@ function loadCommands() {
       const cmd = require(path.join(cmdPath, file));
       commands[cmd.name] = cmd;
     } catch (e) {
-      console.error(`⚠️ Kushindwa kupakia command ${file}:`, e.message);
+      console.error(`⚠️ Failed to load command ${file}:`, e.message);
     }
   }
   return commands;
@@ -62,7 +62,6 @@ async function startBot() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      // Print QR in terminal
       qrcode.generate(qr, { small: true });
       console.log("📷 Scan QR code hapa terminal!");
     }
@@ -87,7 +86,7 @@ async function startBot() {
       const msg = m.messages?.[0];
       if (!msg?.message) return;
 
-      const sender = msg.key.remoteJid;
+      const sender = msg.key.participant || msg.key.remoteJid;
       const body =
         msg.message.conversation ||
         msg.message.extendedTextMessage?.text ||
@@ -96,7 +95,7 @@ async function startBot() {
 
       // Only owner can use bot
       if (sender !== ownerNumber) {
-        if (body.startsWith("*")) {
+        if (body.startsWith("*") || body.startsWith("#")) {
           await sock.sendMessage(sender, {
             text: "🚫 Samahani, bot hii ni private. Huwezi kuitumia.",
           });
@@ -104,14 +103,17 @@ async function startBot() {
         return;
       }
 
-      // Auto react
-      try {
-        await sock.sendMessage(sender, { react: { text: AUTO_REACT, key: msg.key } });
-      } catch {}
+      // Auto react with random emoji
+      if (AUTO_REACT.length > 0) {
+        const randomReact = AUTO_REACT[Math.floor(Math.random() * AUTO_REACT.length)];
+        try {
+          await sock.sendMessage(sender, { react: { text: randomReact, key: msg.key } });
+        } catch {}
+      }
 
-      // Commands (prefix "*")
-      if (body.startsWith("*")) {
-      if (body.startsWith("#")) {
+      // Commands (prefix * or #)
+      if (body.startsWith("*") || body.startsWith("#")) {
+        const prefix = body[0];
         const args = body.slice(1).trim().split(/ +/);
         const cmdName = args.shift().toLowerCase();
 
@@ -123,6 +125,7 @@ async function startBot() {
           });
         }
       }
+
     } catch (e) {
       console.error("❌ messages.upsert error:", e);
     }
@@ -154,9 +157,8 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-app.get("/", (req, res) =>
-  res.send("✅ WhatsApp Bot is running (QR Login, prefix '*')")
-  res.send("✅ WhatsApp Bot is running (QR Login, prefix '#')")
-);
+app.get("/", (req, res) => {
+  res.send("✅ WhatsApp Bot is running (QR Login, prefixes '*' and '#')");
+});
 
 app.listen(PORT, () => console.log(`🌐 Web server listening on :${PORT}`));
