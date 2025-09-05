@@ -3,7 +3,7 @@ services:
     name: whatsapp-bot
     env: node
     plan: free
-    region: singapore
+    region: Oregon 
     buildCommand: "npm install"
     startCommand: "npm start"
     envVars:
