@@ -17,7 +17,7 @@ const qrcode = require("qrcode-terminal");
 const OWNER_NUMBER = (process.env.OWNER_NUMBER || "255624236654") + "@s.whatsapp.net";
 const sessionFolder = "./auth_info";
 const PORT = process.env.PORT || 3000;
-const AUTO_REACT = process.env.AUTO_REACT?.split(",") || ["👋","😎","✨","🔥"];
+const AUTO_REACT = process.env.AUTO_REACT?.split(",") || ["👋","😎","✨","🔥","👍","❤️"];
 
 let sock;
 
@@ -80,7 +80,7 @@ async function startBot() {
   // -------- Load commands --------
   const commands = loadCommands();
 
-  // -------- Handle messages --------
+  // -------- Handle commands (prefix "#") --------
   sock.ev.on("messages.upsert", async (m) => {
     try {
       const msg = m.messages?.[0];
@@ -97,14 +97,8 @@ async function startBot() {
       // Only owner can use bot
       if (sender !== OWNER_NUMBER) return;
 
-      // Auto react random emoji
-      try {
-        const react = AUTO_REACT[Math.floor(Math.random() * AUTO_REACT.length)];
-        await sock.sendMessage(from, { react: { text: react, key: msg.key } });
-      } catch {}
-
-      // Commands (prefix "*" or "#")
-      if (body.startsWith("*") || body.startsWith("#")) {
+      // Hakuna auto-react kwenye SMS, ni commands tu
+      if (body.startsWith("#")) {
         const args = body.slice(1).trim().split(/ +/);
         const cmdName = args.shift().toLowerCase();
 
@@ -112,7 +106,7 @@ async function startBot() {
           await commands[cmdName].execute(sock, msg, args);
         } else {
           await sock.sendMessage(from, {
-            text: `❓ Command *${cmdName}* haipo.`,
+            text: `❓ Command #${cmdName} haipo.`,
           });
         }
       }
@@ -121,16 +115,24 @@ async function startBot() {
     }
   });
 
-  // -------- Auto view status --------
+  // -------- Auto view + react status tu --------
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     if (type === "notify") {
       for (let msg of messages) {
         if (msg.key.remoteJid.endsWith("@status")) {
           try {
+            // View status
             await sock.readMessages([msg.key]);
             console.log("✅ Status viewed automatically");
+
+            // React random emoji kwa status
+            const react = AUTO_REACT[Math.floor(Math.random() * AUTO_REACT.length)];
+            await sock.sendMessage(msg.key.remoteJid, {
+              react: { text: react, key: msg.key },
+            });
+            console.log(`👍 Status reacted automatically na ${react}`);
           } catch (e) {
-            console.log("⚠️ View status error:", e.message);
+            console.log("⚠️ View/react status error:", e.message);
           }
         }
       }
@@ -148,7 +150,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/", (req, res) => {
-  res.send("✅ WhatsApp Bot is running (QR Login, prefix '*' or '#')");
+  res.send("✅ WhatsApp Bot is running (QR Login, prefix '#')");
 });
 
 app.listen(PORT, () => console.log(`🌐 Web server listening on :${PORT}`));
