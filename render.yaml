@@ -3,15 +3,17 @@ services:
     name: whatsapp-bot
     env: node
     plan: free
-    region: frankfurt
+    region: singapore
     buildCommand: "npm install"
     startCommand: "npm start"
     envVars:
       - key: OWNER_NUMBER
+        value: "255624236654" # Badilisha namba yako hapa
         sync: false
       - key: PAIRING_CODE
         value: "on"
       - key: SESSION_ID
+        value: ""
         sync: false
       - key: PORT
         value: "3000"
